@@ -1,0 +1,13 @@
+# This is the network config written by 'subiquity'
+network:
+  version: 2
+  ethernets:
+    enp0s3:
+      dhcp4: yes
+      dhcp4-overrides:
+        route-metric: 100
+    enp0s8:
+      dhcp4: no
+      addresses:
+        - 192.168.50.10/24                               
+
