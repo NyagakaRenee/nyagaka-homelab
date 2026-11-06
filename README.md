@@ -32,7 +32,7 @@ Full detail: [`docs/nyagaka-network/network-topology.md`](docs/nyagaka-network/n
 
 | Path | Contents |
 | --- | --- |
-| `system-configs/` | Hardened SSH config, Fail2ban jail, UFW rules, PAM password policy, Netplan files, cron jobs |
+| `system-configs/` | Hardened SSH drop-in, Fail2ban jail, UFW rules, PAM password policy, Netplan files, cron jobs |
 | `docs/` | Network topology and per-stage write-ups |
 | `lab-notes/` | Baseline measurements taken before changes |
 | `lab-scripts/` | Detection and monitoring scripts |
