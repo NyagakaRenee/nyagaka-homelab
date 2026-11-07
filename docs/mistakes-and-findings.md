@@ -42,6 +42,17 @@ A running record of what went wrong, how I found the cause, and what fixed it. N
 - **Fix:** Put each OCID alone in a PowerShell variable and built the command from those.
 - **Lesson:** Check what tool a copied command assumes before running it. When a command fails with an odd parse error, print the variables and look for extra text.
 
+### 6. Host firewall blocked the web ports despite correct cloud rules
+- **Symptom:** (caught before it caused an outage) the host's iptables list had `REJECT all` above the allow rules for 80/443, plus a duplicated default set.
+- **Diagnosis:** Listing `iptables -L INPUT --line-numbers` showed rules were evaluated top to bottom, so allows placed after the REJECT never matched. Some of the stray rules, including ports 1514/1515, had been added earlier from an unreviewed plan.
+- **Fix:** Inserted 80/443 allows above the REJECT to confirm the page loaded, then moved to UFW as the single manager of host rules and removed the stray 1514/1515 rules, including from the saved rules file.
+- **Lesson:** Cloud rules and host rules are two separate layers, and both must allow the traffic. Review commands from any source, including another AI, against the live state before running them.
+
+### 7. Stage 0 password policy was too weak for internet-facing servers
+- **Problem:** The Stage 0 policy used `minlen=3`, convenient for testing but not acceptable on cloud hosts.
+- **Fix:** Raised to `minlen=12` with digit, upper, lower and symbol rules and a 5-password history on all three servers, and tested that a weak password is rejected.
+- **Lesson:** Lab shortcuts need to be tightened when a system moves to a public network.
+
 ## Routine: my home IP changed
 
 SSH is allowed only from my current public address, which changes. When SSH times out:
