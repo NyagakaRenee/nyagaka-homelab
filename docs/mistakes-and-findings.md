@@ -53,6 +53,18 @@ A running record of what went wrong, how I found the cause, and what fixed it. N
 - **Fix:** Raised to `minlen=12` with digit, upper, lower and symbol rules and a 5-password history on all three servers, and tested that a weak password is rejected.
 - **Lesson:** Lab shortcuts need to be tightened when a system moves to a public network.
 
+### 8. Fail2ban ignored my config file
+- **Symptom:** `fail2ban-client get sshd ignoreip` said nothing was ignored, even though `jail.local` listed the jump host.
+- **Diagnosis:** The file was correct. Fail2ban had started automatically at install, before the file existed, and `enable --now` does not reload a service that is already running. It was still running on defaults (10-minute ban), on all three servers.
+- **Fix:** Restarted the service on each server, then checked the live values (`bantime` printed 3600, and `ignoreip` listed the jump host on the admin server only).
+- **Lesson:** Verify the running configuration with the tool's own query command, not just the file on disk.
+
+### 9. A private key was committed to a public repo
+- **Problem:** While setting up, a private key file was generated inside the repo folder and committed. It stayed in the history from September until I deleted it in November. It was passphrase-protected, and I confirmed it was not authorised on my GitHub account or as a deploy key, so it could not open anything.
+- **Diagnosis:** Deleting a file does not remove it from earlier commits. I searched the full history for key files and private key markers, and compared fingerprints against the keys GitHub lists.
+- **Fix:** Rewrote the history to remove the key from every commit, verified that no key material remained and that the final files were identical, then recreated the repository from the cleaned history. Pushes now come from a server using a repository-scoped deploy key.
+- **Lesson:** Generate keys with a full path outside any repository (`ssh-keygen -f ~/.ssh/name`), and search the history for secrets before making a repo public.
+
 ## Routine: my home IP changed
 
 SSH is allowed only from my current public address, which changes. When SSH times out:
