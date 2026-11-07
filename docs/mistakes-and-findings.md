@@ -65,6 +65,23 @@ A running record of what went wrong, how I found the cause, and what fixed it. N
 - **Fix:** Rewrote the history to remove the key from every commit, verified that no key material remained and that the final files were identical, then recreated the repository from the cleaned history. Pushes now come from a server using a repository-scoped deploy key.
 - **Lesson:** Generate keys with a full path outside any repository (`ssh-keygen -f ~/.ssh/name`), and search the history for secrets before making a repo public.
 
+### 10. My scripts were missing from the repo
+- **Symptom:** `lab-scripts` showed as an empty, unclickable folder on GitHub, and a fresh clone had nothing in it.
+- **Diagnosis:** `git ls-tree` showed mode `160000`, a pointer to another repository. The folder had been its own git repo, so the main repo stored a commit ID and none of the files, and there was no `.gitmodules` to explain it.
+- **Fix:** Removed the pointer with `git rm --cached` and added the script back as ordinary tracked files.
+- **Lesson:** After pushing, clone the repo fresh and look at what you get. A folder you can't open on GitHub usually means a nested repository.
+
+### 11. Cron job logged to the wrong place
+- **Problem:** The crontab line ended `2&>1` instead of `2>&1`, so output went to a file literally named `1` and the error log stayed empty. Script failures would have been invisible.
+- **Fix:** Corrected the redirect, and checked it with `crontab -l` after saving.
+- **Lesson:** Read back what you saved. A silent failure log is worse than none, because it looks like everything is fine.
+
+### 12. A detection that could never match
+- **Symptom:** The Stage 0 monitor counted `Failed password`, which hardened servers never log, because password login is off. It would have reported zero attempts forever.
+- **Diagnosis:** With key-only SSH, failed probes appear as `Invalid user` and `Connection closed ... [preauth]` instead. I proved it by attempting a login as a nonexistent user from the jump host.
+- **Fix:** Widened the pattern to include `Invalid user`, and confirmed the count rose from 0 to 1.
+- **Lesson:** A detection rule has to be tested against the system it will actually watch. Changing a defence can silently break the detection built for the old setup.
+
 ## Routine: my home IP changed
 
 SSH is allowed only from my current public address, which changes. When SSH times out:
