@@ -29,3 +29,24 @@ A running record of what went wrong, how I found the cause, and what fixed it. N
 - **Problem:** I added a 443 rule open to the internet on the subnet-wide security list, which would have exposed the SIEM host too.
 - **Fix:** Removed it. Web ports will go on a network security group attached to the web server only.
 - **Lesson:** A security list applies to every host in the subnet. Per-host rules belong in a network security group.
+
+### 4. Console connection rejected my SSH key
+- **Symptom:** The OCI console connection dialog said the public key was invalid.
+- **Diagnosis:** The key was a correctly formatted Ed25519 key that works for normal SSH. The console connection dialog accepts RSA keys, so the key type was the problem, not the paste.
+- **Fix:** Generated a separate 4096-bit RSA key used only for the console, with a passphrase. The normal SSH key is unchanged.
+- **Lesson:** "Invalid key" can mean an unsupported key type, not just a bad paste. Keep one key per purpose so a problem with one does not affect the other.
+
+### 5. Console connection command did not match my tools
+- **Symptom:** The command copied from the console connection page did not run on Windows.
+- **Diagnosis:** The Windows variant relies on PuTTY (`plink`) and a `.ppk` key. I use OpenSSH with an OpenSSH-format key, so I rebuilt the command as an `ssh` call with a `ProxyCommand`. My first attempts failed because I pasted a placeholder literally, and then because a stray port-forward option ended up inside a variable.
+- **Fix:** Put each OCID alone in a PowerShell variable and built the command from those.
+- **Lesson:** Check what tool a copied command assumes before running it. When a command fails with an odd parse error, print the variables and look for extra text.
+
+## Routine: my home IP changed
+
+SSH is allowed only from my current public address, which changes. When SSH times out:
+
+1. Look up my current public address.
+2. In OCI, edit the SSH ingress rule on the subnet security list and set the source to that address with `/32`.
+3. Confirm no rule allows SSH from `0.0.0.0/0`.
+4. Retry. If it still fails, use the console connection, which does not depend on the firewall rule.

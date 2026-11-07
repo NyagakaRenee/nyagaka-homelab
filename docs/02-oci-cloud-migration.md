@@ -35,6 +35,10 @@ Three virtual machines plus a SIEM is too much for one laptop. Oracle Cloud's Al
 - Fail2ban for the SSH service.
 - Logging daemon installed (the minimal image does not ship one), so authentication logs exist for detection work.
 
+## Recovery path
+
+Each server has an OCI console connection (serial console), created with a dedicated RSA key. It works even when SSH or the firewall is misconfigured, and it is the only way into the private-subnet server if the jump host fails. The `ubuntu` account has a password set for console login only; SSH password login stays off.
+
 ## What's next
 
 Python log parsing, then the Wazuh SIEM and a WAF in front of the web server. See the project [README](../README.md).
