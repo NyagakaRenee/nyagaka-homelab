@@ -66,4 +66,4 @@ This repo contains configuration files only. No private keys, passwords, or acco
 
 ## Contact
 
-[LinkedIn](https://www.linkedin.com/) · GitHub: [NyagakaRenee](https://github.com/NyagakaRenee)
+[LinkedIn](https://www.linkedin.com/in/renee-nyagaka/) · GitHub: [NyagakaRenee](https://github.com/NyagakaRenee)
