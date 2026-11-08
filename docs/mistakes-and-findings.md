@@ -82,6 +82,12 @@ A running record of what went wrong, how I found the cause, and what fixed it. N
 - **Fix:** Widened the pattern to include `Invalid user`, and confirmed the count rose from 0 to 1.
 - **Lesson:** A detection rule has to be tested against the system it will actually watch. Changing a defence can silently break the detection built for the old setup.
 
+### 13. The detection counted its own audit trail
+- **Symptom:** The failed-attempt count on the admin server rose from 1 to 3 in minutes, on a host only the jump server can reach.
+- **Diagnosis:** Listing the matching lines showed one real event (my own test login) and two `sudo` entries. `sudo` logs each command I run, and my checking commands contained the words the pattern searches for, so checking the count made it go up.
+- **Fix:** Anchored the pattern to the `sshd` process (`sshd[pid]: Failed password|Invalid user`), so `sudo` lines no longer match. The count returned to 1.
+- **Lesson:** A detection can match the investigator's own commands. Anchor patterns to the source that produces the event.
+
 ## Routine: my home IP changed
 
 SSH is allowed only from my current public address, which changes. When SSH times out:

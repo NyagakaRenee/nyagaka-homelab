@@ -2,10 +2,12 @@
 # Counts failed SSH logins and flags a possible brute-force pattern.
 # Runs as root from cron (needs to read auth.log). Absolute paths only:
 # under cron/sudo, $HOME is /root, not the admin user's home.
+# The pattern is anchored to the sshd process so that sudo log lines
+# (which quote these words in commands) are not counted as attacks.
 LOGFILE="/var/log/auth.log"
 OUTDIR="/var/log/nyagaka"
 OUTPUT="$OUTDIR/ssh_alerts.log"
-PATTERN="Failed password|Invalid user"
+PATTERN='sshd\[[0-9]+\]: (Failed password|Invalid user)'
 THRESHOLD=20
 
 mkdir -p "$OUTDIR"
