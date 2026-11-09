@@ -1,0 +1,32 @@
+=== Cloud baseline nyagaka-web01 Sun Nov  8 06:45:39 UTC 2026 ===
+               total        used        free      shared  buff/cache   available
+Mem:           5.8Gi       507Mi       3.0Gi       5.3Mi       2.5Gi       5.3Gi
+Swap:             0B          0B          0B
+ 06:45:39 up 16 days, 23:38,  1 user,  load average: 0.00, 0.00, 0.00
+--- listening ports
+State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                                                   
+LISTEN 0      4096   127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=8381,fd=15))               
+LISTEN 0      4096         0.0.0.0:111       0.0.0.0:*    users:(("rpcbind",pid=561,fd=4),("systemd",pid=1,fd=142))
+LISTEN 0      511          0.0.0.0:80        0.0.0.0:*    users:(("nginx",pid=41085,fd=5),("nginx",pid=41083,fd=5))
+LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=17617,fd=3),("systemd",pid=1,fd=240)) 
+LISTEN 0      4096      127.0.0.54:53        0.0.0.0:*    users:(("systemd-resolve",pid=8381,fd=17))               
+LISTEN 0      4096            [::]:111          [::]:*    users:(("rpcbind",pid=561,fd=6),("systemd",pid=1,fd=144))
+LISTEN 0      511             [::]:80           [::]:*    users:(("nginx",pid=41085,fd=6),("nginx",pid=41083,fd=6))
+LISTEN 0      4096            [::]:22           [::]:*    users:(("sshd",pid=17617,fd=4),("systemd",pid=1,fd=241)) 
+--- running services: 24
+--- failed ssh attempts in auth.log: 1
+--- firewall
+Status: active
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere                  
+80/tcp                     ALLOW       Anywhere                  
+443/tcp                    ALLOW       Anywhere                  
+22/tcp (v6)                ALLOW       Anywhere (v6)             
+80/tcp (v6)                ALLOW       Anywhere (v6)             
+443/tcp (v6)               ALLOW       Anywhere (v6)             
+
+--- fail2ban
+   |- Currently banned:	0
+   |- Total banned:	0
