@@ -1,0 +1,24 @@
+=== Cloud baseline nyagaka-siem01 Mon Nov  9 18:17:24 UTC 2026 ===
+               total        used        free      shared  buff/cache   available
+Mem:            11Gi       560Mi       8.9Gi       6.8Mi       2.5Gi        11Gi
+Swap:             0B          0B          0B
+ 18:17:24 up 21 days, 10:53,  1 user,  load average: 0.12, 0.03, 0.01
+--- listening ports
+State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                                                  
+LISTEN 0      4096      127.0.0.54:53        0.0.0.0:*    users:(("systemd-resolve",pid=5798,fd=17))              
+LISTEN 0      4096   127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=5798,fd=15))              
+LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=13383,fd=3),("systemd",pid=1,fd=188))
+LISTEN 0      4096            [::]:22           [::]:*    users:(("sshd",pid=13383,fd=4),("systemd",pid=1,fd=191))
+--- running services: 23
+--- failed ssh attempts in auth.log: 0
+--- firewall
+Status: active
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere                  
+22/tcp (v6)                ALLOW       Anywhere (v6)             
+
+--- fail2ban
+   |- Currently banned:	0
+   |- Total banned:	0
