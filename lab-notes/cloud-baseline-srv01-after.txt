@@ -1,8 +1,8 @@
-=== Cloud baseline nyagaka-srv01 Mon Nov  9 17:59:05 UTC 2026 ===
+=== Cloud baseline nyagaka-srv01 Tue Nov 10 07:40:44 UTC 2026 ===
                total        used        free      shared  buff/cache   available
-Mem:           954Mi       402Mi       244Mi       5.0Mi       472Mi       551Mi
+Mem:           954Mi       392Mi       268Mi       5.0Mi       458Mi       561Mi
 Swap:             0B          0B          0B
- 17:59:05 up 18 days, 10:04,  1 user,  load average: 0.06, 0.01, 0.00
+ 07:40:44 up 18 days, 23:46,  1 user,  load average: 0.00, 0.00, 0.00
 --- listening ports
 State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                                                  
 LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=14458,fd=3),("systemd",pid=1,fd=195))
@@ -10,7 +10,7 @@ LISTEN 0      4096      127.0.0.54:53        0.0.0.0:*    users:(("systemd-resol
 LISTEN 0      4096   127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=7748,fd=15))              
 LISTEN 0      4096            [::]:22           [::]:*    users:(("sshd",pid=14458,fd=4),("systemd",pid=1,fd=199))
 --- running services: 23
---- failed ssh attempts in auth.log: 5
+--- failed ssh attempts in auth.log: 1
 --- firewall
 Status: active
 
