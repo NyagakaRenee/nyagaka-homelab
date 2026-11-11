@@ -96,3 +96,9 @@ SSH is allowed only from my current public address, which changes. When SSH time
 2. In OCI, edit the SSH ingress rule on the subnet security list and set the source to that address with `/32`.
 3. Confirm no rule allows SSH from `0.0.0.0/0`.
 4. Retry. If it still fails, use the console connection, which does not depend on the firewall rule.
+
+### 14. Sudo never asked for a password
+- **Symptom:** Testing the new sudo-failure detector, `sudo` never prompted at all, even after `sudo -k`.
+- **Diagnosis:** `grep -r NOPASSWD /etc/sudoers.d/` showed cloud-init grants the `ubuntu` account `NOPASSWD:ALL`. This is Oracle's own default, not a local misconfiguration.
+- **Decision:** Left as is. SSH is already key-only with no password fallback, so the key is the real access boundary — a sudo password on top of it wouldn't add a second gate, since whoever has the key already controls the account.
+- **Lesson:** Not every surprising finding is a bug to fix. Understanding *why* something behaves unexpectedly matters more than reflexively "correcting" it.

@@ -1,79 +1,82 @@
 #!/usr/bin/env python3
 """
-log_shipper.py — Python port of ssh_login_monitor.sh (Nyagaka homelab, Block B Week 3).
-Parses the whole auth.log, same as the bash version, so the totals are directly
-comparable. Anchored to sshd[pid]: to exclude sudo audit lines (finding 13).
+log_shipper.py — Week 4: adds account-creation and sudo-escalation detection,
+and writes normalized events as JSON Lines (one JSON object per line) instead
+of plain text — the format Wazuh's agent will ingest from Week 7 onward.
 """
 import re
+import json
 from pathlib import Path
-from datetime import datetime, timezone
 
 LOGFILE = "/var/log/auth.log"
 OUTDIR = Path("/var/log/nyagaka")
-OUTPUT = OUTDIR / "ssh_alerts_python.log"
+JSON_OUTPUT = OUTDIR / "events.jsonl"
 THRESHOLD = 20
 
-# Only lines that start sshd[pid]: — excludes sudo lines entirely, same fix as finding 13.
-PREFIX_RE = re.compile(r"sshd\[(?P<pid>\d+)\]:\s*(?P<message>.*)")
+PREFIX_RE = re.compile(
+    r"^(?P<timestamp>\S+)\s+(?P<hostname>\S+)\s+"
+    r"(?P<process>\w+)(?:\[(?P<pid>\d+)\])?:\s*(?P<message>.*)$"
+)
 
-# Tried in order, most specific first. Real sshd lines come in these shapes:
-#   "Failed password for invalid user bob from 10.0.0.5 port 54321 ssh2"
-#   "Failed password for root from 10.0.0.5 port 54321 ssh2"
-#   "Invalid user bob from 10.0.0.5 port 54321"
-# "Connection closed by invalid user ... [preauth]" is deliberately NOT matched here —
-# it's the same attempt logged a second time, and counting it would double the total.
-EVENT_PATTERNS = [
-            ("failed_invalid_user", re.compile(r"Failed password for invalid user (?P<user>\S+) from (?P<ip>\S+)")),
-            ("failed_password",     re.compile(r"Failed password for (?P<user>\S+) from (?P<ip>\S+)")),
-            ("invalid_user",        re.compile(r"Invalid user (?P<user>\S+) from (?P<ip>\S+)")),
+SSH_PATTERNS = [
+    ("failed_invalid_user", re.compile(r"Failed password for invalid user (?P<user>\S+) from (?P<ip>\S+)")),
+    ("failed_password",     re.compile(r"Failed password for (?P<user>\S+) from (?P<ip>\S+)")),
+    ("invalid_user",        re.compile(r"Invalid user (?P<user>\S+) from (?P<ip>\S+)")),
+]
+ACCOUNT_PATTERNS = [
+    ("account_created",  re.compile(r"new user: name=(?P<user>[^,]+)")),
+    ("account_modified", re.compile(r"add '(?P<user>[^']+)' to group '(?P<group>[^']+)'")),
+]
+SUDO_PATTERNS = [
+    ("sudo_auth_failure", re.compile(r"authentication failure;.*\buser=(?P<user>\S+)")),
 ]
 
 def parse_log(logfile):
     events = []
     with open(logfile, "r") as f:
         for line in f:
-            prefix_match = PREFIX_RE.search(line)
-            if not prefix_match:
-                continue  # not an sshd line at all (e.g. a sudo entry)
-            message = prefix_match.group("message")
- 
+            m = PREFIX_RE.search(line)
+            if not m:
+                continue
+            process, message = m.group("process"), m.group("message")
 
-            for event_type, pattern in EVENT_PATTERNS:
-                m = pattern.search(message)
-                if m:
+            if process == "sshd":
+                patterns, has_ip = SSH_PATTERNS, True
+            elif process in ("useradd", "usermod"):
+                patterns, has_ip = ACCOUNT_PATTERNS, False
+            elif process == "sudo":
+                patterns, has_ip = SUDO_PATTERNS, False
+            else:
+                continue
+
+            for event_type, pattern in patterns:
+                em = pattern.search(message)
+                if em:
                     events.append({
-                        "pid": prefix_match.group("pid"),
+                        "timestamp": m.group("timestamp"),
+                        "hostname": m.group("hostname"),
                         "event_type": event_type,
-                        "target_user": m.group("user"),
-                        "src_ip": m.group("ip"),
-                        })
-                    break  # stop at the first pattern that matches this line
+                        "target_user": em.groupdict().get("user"),
+                        "src_ip": em.groupdict().get("ip") if has_ip else "local",
+                    })
+                    break
     return events
-
-def count_by_source(events):
-    """Dict of src_ip -> count. This is the per-IP breakdown Week 9's brute-force rule (5+ failures from one IP) will eventually need."""
-    counts = {}
-    for e in events:
-        counts[e["src_ip"]] = counts.get(e["src_ip"], 0) + 1
-    return counts
 
 def main():
     OUTDIR.mkdir(parents=True, exist_ok=True)
     events = parse_log(LOGFILE)
-    fail_count = len(events)
-    by_source = count_by_source(events)
 
-    with open(OUTPUT, "a") as out:
-        out.write(f"=== SSH Login Check (python): {datetime.now(timezone.utc)} ===\n")
-        for e in events[-10:]:
-            out.write(f"{e['event_type']}: {e['target_user']} from {e['src_ip']}\n")
-            out.write(f"Total failed/invalid attempts logged: {fail_count}\n")
-        for ip, count in by_source.items():
-            out.write(f"  from {ip}: {count}\n")
-        if fail_count > THRESHOLD:
-            out.write("ALERT: High volume of failed attempts, possible brute-force activity!\n")
-    
-    print(f"Done. Total: {fail_count}. See {OUTPUT}")
+    with open(JSON_OUTPUT, "a") as out:
+        for e in events:
+            out.write(json.dumps(e) + "\n")
+
+    ssh_fails = sum(1 for e in events if e["event_type"] in ("failed_invalid_user", "failed_password", "invalid_user"))
+    print(f"Done. {len(events)} total events written to {JSON_OUTPUT}")
+    print(f"  SSH failures: {ssh_fails}")
+    print(f"  Account changes: {sum(1 for e in events if e['event_type'].startswith('account'))}")
+    print(f"  Sudo failures: {sum(1 for e in events if e['event_type'] == 'sudo_auth_failure')}")
+    if ssh_fails > THRESHOLD:
+        print("ALERT: High volume of SSH failures, possible brute-force activity!")
 
 if __name__ == "__main__":
     main()
