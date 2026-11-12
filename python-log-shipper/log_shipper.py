@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """
-log_shipper.py — Week 4: adds account-creation and sudo-escalation detection,
-and writes normalized events as JSON Lines (one JSON object per line) instead
-of plain text — the format Wazuh's agent will ingest from Week 7 onward.
+log_shipper.py — Week 4 added account-creation and sudo-escalation detection
+and JSON Lines output. Week 5 adds an optional push to a central receiver
+(a stand-in for the Wazuh manager, which doesn't exist until Week 6) so the
+forwarding path exists and is proven ahead of the real SIEM install.
 """
 import re
 import json
+import requests
 from pathlib import Path
 
 LOGFILE = "/var/log/auth.log"
 OUTDIR = Path("/var/log/nyagaka")
 JSON_OUTPUT = OUTDIR / "events.jsonl"
 THRESHOLD = 20
+
+PUSH_URL = "http://10.0.0.236:5000/events"
+PUSH_ENABLED = True
 
 PREFIX_RE = re.compile(
     r"^(?P<timestamp>\S+)\s+(?P<hostname>\S+)\s+"
@@ -62,6 +67,21 @@ def parse_log(logfile):
                     break
     return events
 
+def push_events(events):
+    """Best-effort push to the central receiver. Never crash the script over
+    a network issue — the local JSON Lines file is always the source of truth."""
+    sent, failed = 0, 0
+    for e in events:
+        try:
+            resp = requests.post(PUSH_URL, json=e, timeout=3)
+            if resp.status_code == 200:
+                sent += 1
+            else:
+                failed += 1
+        except requests.exceptions.RequestException:
+            failed += 1
+    return sent, failed
+
 def main():
     OUTDIR.mkdir(parents=True, exist_ok=True)
     events = parse_log(LOGFILE)
@@ -77,6 +97,10 @@ def main():
     print(f"  Sudo failures: {sum(1 for e in events if e['event_type'] == 'sudo_auth_failure')}")
     if ssh_fails > THRESHOLD:
         print("ALERT: High volume of SSH failures, possible brute-force activity!")
+
+    if PUSH_ENABLED and events:
+        sent, failed = push_events(events)
+        print(f"Pushed to receiver: {sent} sent, {failed} failed")
 
 if __name__ == "__main__":
     main()
