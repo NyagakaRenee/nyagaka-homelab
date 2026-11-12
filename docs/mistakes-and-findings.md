@@ -112,3 +112,13 @@ SSH is allowed only from my current public address, which changes. When SSH time
 **Fix:** cleared the legacy rule block from the live `INPUT` chain, leaving UFW as the sole firewall manager on SIEM01 (same end state the other two servers already had).
 
 **Lesson:** "defer until later" on a known firewall oddity is a real liability, not a neutral placeholder — it broke the very next unrelated feature that needed a new port, two blocks later than planned, and cost real debugging time to re-diagnose from scratch.
+
+## Finding 16: a custom log source reaching the agent isn't the same as reaching the dashboard
+
+**What happened:** after enrolling WEB01 and SRV01 as Wazuh agents and confirming via `ossec.log` that the agent was actively tailing `events.jsonl` with zero errors, searching for the events in the dashboard's Discover view (`wazuh-alerts-*`) returned nothing.
+
+**Root cause, in two layers:** (1) Wazuh only writes to the alerts index when an event matches a detection rule — custom JSON fields with no matching rule are processed but silently produce no alert, which is expected behavior ahead of writing real rules in Week 9, not a bug. (2) Enabling raw event capture (`logall`/`logall_json` on the manager) only writes archive data to a local file on the manager's disk — it does not by itself ship anything to the indexer. That requires Filebeat's `wazuh` module to have its `archives.enabled` setting flipped from the installer's default of `false`, a setting the installer leaves off. A red herring along the way: the manager's own log showed `IndexerConnector` activity, which looked like a second possible ingestion path, but that component only handles vulnerability data, not archived events.
+
+**Fix:** enabled `logall`/`logall_json` in `ossec.conf`, enabled `archives` in Filebeat's wazuh module config (`/etc/filebeat/filebeat.yml`), restarted both services, then created a matching `wazuh-archives-*` index pattern in the dashboard (an index existing in OpenSearch doesn't automatically mean a dashboard can query it — that's a separate object).
+
+**Lesson:** "the agent is reading the file with no errors" proves only the first hop of a multi-hop pipeline. Proving data all the way to the dashboard needed checking every hop separately: agent → manager rule match → manager archive write → Filebeat forward → indexer → dashboard index pattern.
