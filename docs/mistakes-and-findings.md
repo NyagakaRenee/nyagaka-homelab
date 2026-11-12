@@ -102,3 +102,13 @@ SSH is allowed only from my current public address, which changes. When SSH time
 - **Diagnosis:** `grep -r NOPASSWD /etc/sudoers.d/` showed cloud-init grants the `ubuntu` account `NOPASSWD:ALL`. This is Oracle's own default, not a local misconfiguration.
 - **Decision:** Left as is. SSH is already key-only with no password fallback, so the key is the real access boundary — a sudo password on top of it wouldn't add a second gate, since whoever has the key already controls the account.
 - **Lesson:** Not every surprising finding is a bug to fix. Understanding *why* something behaves unexpectedly matters more than reflexively "correcting" it.
+
+## Finding 15: a deferred cleanup from Block A quietly blocked an unrelated new feature in Block B
+
+**What happened:** building the Week 5 forwarding agent, opening port 5000 on SIEM01 for the central receiver, the connection failed instantly from both WEB01 and SRV01 despite correct NSG and UFW rules on both sides.
+
+**Root cause:** back in Block A, a stale iptables ruleset from an earlier (non-UFW, third-party-suggested) hardening attempt was found on WEB01 and SIEM01. It was removed from WEB01 at the time, but the SIEM01 copy was deliberately left in place with a note to deal with it "in Block C" — it carried its own small hardcoded allow-list (SSH, 443, and the Wazuh agent ports 1514/1515) and rejected everything else, sitting in the live `iptables` table *ahead of* UFW's own chain. It wasn't in the persisted `/etc/iptables/rules.v4` file, only in the running table, so it was invisible to a config review and would have silently disappeared on the next reboot — but until then, it rejected any new port that wasn't on its original 2026-era allow-list.
+
+**Fix:** cleared the legacy rule block from the live `INPUT` chain, leaving UFW as the sole firewall manager on SIEM01 (same end state the other two servers already had).
+
+**Lesson:** "defer until later" on a known firewall oddity is a real liability, not a neutral placeholder — it broke the very next unrelated feature that needed a new port, two blocks later than planned, and cost real debugging time to re-diagnose from scratch.
