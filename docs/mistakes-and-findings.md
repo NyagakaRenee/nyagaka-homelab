@@ -122,3 +122,13 @@ SSH is allowed only from my current public address, which changes. When SSH time
 **Fix:** enabled `logall`/`logall_json` in `ossec.conf`, enabled `archives` in Filebeat's wazuh module config (`/etc/filebeat/filebeat.yml`), restarted both services, then created a matching `wazuh-archives-*` index pattern in the dashboard (an index existing in OpenSearch doesn't automatically mean a dashboard can query it — that's a separate object).
 
 **Lesson:** "the agent is reading the file with no errors" proves only the first hop of a multi-hop pipeline. Proving data all the way to the dashboard needed checking every hop separately: agent → manager rule match → manager archive write → Filebeat forward → indexer → dashboard index pattern.
+
+## Finding 17: testing for a false positive and getting a clean result is still a finding
+
+**What happened:** after deploying Nginx + ModSecurity + OWASP CRS at paranoia level 1 on WEB01, confirmed SQLi detection and blocking work correctly (rule 942100 fired on a real injection payload, rule 949110 blocked it with a 403). Expected to also find a false positive on legitimate traffic — the plan anticipated "a detection that broke" as a natural part of this build. None occurred, even after deliberately raising to paranoia level 2 to probe for one.
+
+**Why:** WEB01 currently serves a single static page with no forms, no cookies, no complex request bodies — exactly the kind of request shape that doesn't exercise the more aggressive pattern-matching that higher paranoia levels add. A false-positive problem needs real complexity to trigger against.
+
+**Decision:** kept paranoia level 1. Raising it would add real performance cost and future false-positive risk without any present benefit, since there's nothing on this site complex enough to need the extra scrutiny yet. Revisit once the app has real dynamic input surfaces worth the added strictness.
+
+**Lesson:** a debugging methodology section being honest doesn't require manufacturing a failure. Testing a real hypothesis (does PL2 introduce false positives here?) and getting a clean, well-reasoned null result is itself evidence of sound testing practice, not a gap in the write-up.
