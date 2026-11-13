@@ -1,0 +1,47 @@
+<!-- Local rules — Baraka Enterprises custom detections -->
+<!-- Built on top of log_shipper.py's JSON Lines output (Block B) and the ModSecurity WAF (Block C, Week 8) -->
+<!-- Deployed on SIEM01 at /var/ossec/etc/rules/local_rules.xml -->
+
+<group name="local,nyagaka_custom,">
+
+  <rule id="100005" level="3">
+    <location>/var/log/nyagaka/events.jsonl</location>
+    <description>Nyagaka custom Python detection event ingested.</description>
+    <group>nyagaka_custom,</group>
+  </rule>
+
+  <rule id="100006" level="5">
+    <if_sid>100005</if_sid>
+    <field name="nyagaka_event_type" type="pcre2">^(invalid_user|failed_password|failed_invalid_user)$</field>
+    <description>Nyagaka: SSH authentication failure for user $(target_user) from $(src_ip).</description>
+    <group>authentication_failed,</group>
+  </rule>
+
+  <rule id="100011" level="10" frequency="5" timeframe="10">
+    <if_matched_sid>100006</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>Nyagaka: Possible SSH brute-force - 5+ failed logins from $(src_ip) within 10 seconds.</description>
+    <group>authentication_failures,pci_dss_11.4,</group>
+  </rule>
+
+  <rule id="100013" level="8">
+    <if_sid>100005</if_sid>
+    <field name="nyagaka_event_type" type="pcre2">^(account_created|account_modified)$</field>
+    <description>Nyagaka: Unexpected account change detected - user $(target_user).</description>
+    <group>gdpr_IV_35.7.d,</group>
+  </rule>
+
+  <rule id="100014" level="3">
+    <location>/var/log/modsec_audit.log</location>
+    <description>Nyagaka: ModSecurity audit event ingested.</description>
+    <group>nyagaka_custom,web,</group>
+  </rule>
+
+  <rule id="100012" level="10">
+    <if_sid>100014</if_sid>
+    <field name="transaction.response.http_code">^403$</field>
+    <description>Nyagaka: ModSecurity WAF blocked malicious request from $(transaction.client_ip) to $(transaction.request.uri).</description>
+    <group>web,attack,pci_dss_6.6,</group>
+  </rule>
+
+</group>

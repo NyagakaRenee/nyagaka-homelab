@@ -132,3 +132,23 @@ SSH is allowed only from my current public address, which changes. When SSH time
 **Decision:** kept paranoia level 1. Raising it would add real performance cost and future false-positive risk without any present benefit, since there's nothing on this site complex enough to need the extra scrutiny yet. Revisit once the app has real dynamic input surfaces worth the added strictness.
 
 **Lesson:** a debugging methodology section being honest doesn't require manufacturing a failure. Testing a real hypothesis (does PL2 introduce false positives here?) and getting a clean, well-reasoned null result is itself evidence of sound testing practice, not a gap in the write-up.
+
+## Finding 18: a custom JSON field name silently collided with a built-in ruleset
+
+**What happened:** writing Week 9's custom Wazuh rules, custom SSH-failure events were reaching Wazuh (confirmed via the agent's logcollector read-offset matching the file size exactly) but produced zero alerts for my own rules, even the most basic catch-all one.
+
+**Root cause:** feeding a real captured event straight into `wazuh-logtest` showed it being classified under Wazuh's built-in rule 86600, "Suricata messages" — not mine. My JSON schema used the key `event_type`, which is also the hallmark field name in Suricata's native `eve.json` log format. Wazuh's generic JSON decoding apparently routes any JSON-decoded log containing that key into the Suricata rule tree before my own location-based rule ever got a chance to match, with no error anywhere to flag the collision.
+
+**Fix:** renamed the field to `nyagaka_event_type` in both the Python log shipper and the rule file's field references. Confirmed the fix by re-running the same real test and watching the alert count for my own rule go from 0 to 15.
+
+**Lesson:** a custom log schema can silently collide with a well-known security tool's field-naming convention, even when decoded with a fully generic JSON decoder and even when the log lives at a completely unrelated file path. Namespacing custom field names (a unique prefix) avoids this category of bug entirely.
+
+## Finding 19: a correlation rule referenced the wrong kind of field
+
+**What happened:** the brute-force rule (5+ SSH failures from one source within 10 seconds) never fired, even after confirming the individual per-event rule was matching correctly 15 times in a tight burst.
+
+**Root cause:** the rule used `<same_source_ip />`, which only compares Wazuh's internal, static `srcip` field — a field that is populated only by a decoder explicitly assigning it (e.g. via an `<order>` tag). Wazuh's generic JSON decoder exposes JSON keys as dynamic fields under their own literal names (`src_ip`, with an underscore) and never auto-promotes a differently-named key into the static field, no matter what it's called.
+
+**Fix:** replaced `<same_source_ip />` with `<same_field>src_ip</same_field>`, Wazuh's correlation tag for matching on any named dynamic field rather than only the reserved static one. Verified with a real 5-attempt SSH burst: the correlation rule fired cleanly with the source IP correctly substituted into the alert description.
+
+**Lesson:** "static" and "dynamic" fields are a real distinction in Wazuh's rule engine, not just naming — a correlation tag built for one will silently never match data that only exists as the other, with no warning. When in doubt, test with real traffic through the full pipeline rather than trusting that a rule option "should" work on a given field.
