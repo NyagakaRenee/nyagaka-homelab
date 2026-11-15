@@ -191,3 +191,28 @@ thing, especially with cmdlets that have many similarly-named parameters.
 Every account-creation step in this project gets a direct existence/property
 check afterward rather than being accepted on the absence of visible
 failure.
+## Finding 22: a broken test command looked like a WAF failure
+
+**What happened:** re-testing the SQLi block after the Week 12 Nginx
+hardening change, the first test command returned status `000` instead of
+the expected `403`. Suppressing the response body with `-o NUL` also hid
+curl's own error text, so at a glance this looked like it could mean the
+WAF had stopped blocking after the config edit.
+
+**Root cause:** the test URL contained an unencoded space and literal
+single-quote characters (`?id=1' OR '1'='1`). curl's own client-side URL
+parser rejected the malformed URL before the request ever reached the
+network — `curl: (3) URL rejected: Malformed input to a URL function`.
+`000` meant "no HTTP response was ever received," not "the server allowed
+the request through."
+
+**Fix:** removed `-o NUL` and `-s` to see curl's real error output,
+confirmed the client-side rejection, then rebuilt the request with the
+payload properly URL-encoded (`%27` for `'`, `%20` for space, `%3D` for
+`=`). The corrected request returned a real `403`, confirmed against the
+actual ModSecurity audit log (rules 942100 + 949110).
+
+**Lesson:** a `000` status code from curl is a transport-layer non-result,
+not a security verdict — always worth checking the raw error text (don't
+suppress it) before concluding anything about what the server did or
+didn't do.
