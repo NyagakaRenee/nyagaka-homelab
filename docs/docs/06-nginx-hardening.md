@@ -11,6 +11,7 @@ anyone who asks first.
 
 ## What was leaking (real "before" evidence)
 curl.exe -sk -I https://140.238.99.235/
+
 Server: nginx/1.24.0 (Ubuntu)
 
 and the default 404 error page footer repeated the same string a second
