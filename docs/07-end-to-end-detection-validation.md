@@ -49,3 +49,55 @@ Finding 18 originally was: feeding a real captured event into
 **Final clean run:** 6 fresh real attempts → rule `100006` fired 5/5 on the
 individual events, and rule `100011` (the brute-force correlation rule)
 fired for real:
+“description”:”Nyagaka: Possible SSH brute-force - 5+ failed logins from
+10.0.0.157 within 10 seconds.”
+
+Worth noting honestly: the 5 correlated events' own embedded `timestamp`
+fields span about 23 seconds — wider than the rule's configured 10-second
+window. Not a bug: Wazuh's `frequency`/`timeframe` counts by when
+**analysisd actually processes** each match (all 6 arrived in one batch
+when the per-minute cron job ran), not by the JSON payload's `timestamp`
+field. The correlation window is about real alert-processing time, not log
+content time.
+
+**Detection latency:** bounded by the shipper's 1-minute cron interval —
+not a clean single-test number, since this test was run multiple times
+while debugging the two issues above. Reported honestly as "within one
+cron cycle" rather than a false-precision figure.
+
+## Test 2: SQL injection against WEB01
+
+Fresh, precisely-timed test: `GET /?id=1' OR '1'='1` (URL-encoded) sent at
+`13:01:58 UTC`.
+
+- **Blocking:** instant — `403 Forbidden`, ModSecurity rule `942100`
+  (libinjection SQLi match) + `949110` (anomaly score 8) fired inline.
+- **SIEM alert:** rule `100012` logged at `13:02:13.953 UTC` — confirmed by
+  matching the real `client_ip` (`196.207.135.31`) and query string in the
+  alert body, not just a nearby timestamp.
+- **Real detection latency: ~16 seconds**, end-to-end from request to
+  SIEM alert (the block itself was instant; this is how long the
+  audit-log → Filebeat → Wazuh → rule-match chain took).
+
+## A genuine false-positive check (and a real true positive instead)
+
+While searching for this test's alert, found a different `100012` hit from
+real, unrelated internet traffic: `client_ip: 64.225.54.158`, requesting
+`/.git/config` — classic opportunistic scanning for exposed git
+repositories. Not a false positive at all — a real external probe,
+legitimately blocked and alerted on by the same rule. Worth keeping in the
+case study as evidence the WAF is doing real work against real internet
+background noise, not just our own test payloads.
+
+## Numbers for the case study
+
+| Test | Attempts | Custom rules fired | Detection latency | False positives |
+|---|---|---|---|---|
+| SSH brute-force (SRV01) | 6 real | `100006` ×5, `100011` ×1 | within 1 cron cycle (not cleanly isolated — see note above) | 0 |
+| SQLi (WEB01) | 1 real | `100012`, `100014` | ~16 seconds | 0 (plus 1 genuine true positive against real external scanning) |
+
+## Next
+
+Write the full case study (Situation → Problem → Investigation → What I
+got wrong → Broken detection and fix → Results → Lessons), pulling from
+this doc and the project's full findings log.
