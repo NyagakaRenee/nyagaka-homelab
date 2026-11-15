@@ -87,3 +87,7 @@ Entra Connect, a real hybrid-identity pattern that combines this home lab
 with concurrent SC-900 study rather than treating Entra ID as a substitute
 for self-managed AD DS (it architecturally can't be — no Kerberos/NTLM/GPO
 support — see the tracker entry for the full reasoning).
+
+**Update:** this work is done — see
+`docs/05-ad-organizational-units-and-account-policy.md` for the OUs, test
+user, domain account policy, and the real deliberate-lockout proof.

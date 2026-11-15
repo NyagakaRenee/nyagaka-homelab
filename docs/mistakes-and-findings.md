@@ -162,3 +162,32 @@ SSH is allowed only from my current public address, which changes. When SSH time
 **Fix:** none needed — the domain was already live. Confirmed it directly rather than trusting the claim: `Get-ADDomain` (correct `DNSRoot`, `DomainMode`, `NetBIOSName`), `Get-ADDomainController` (correct hostname/IP, holding the FSMO roles expected for a new forest's first DC), `Get-Service NTDS,DNS,Netlogon,Kdc` (all `Running`), and `ipconfig /all` (DNS now self-referential, primary DNS suffix set) all matched.
 
 **Lesson:** a generic error that keeps blaming a different, unrelated parameter on each retry is a sign the error message itself is unreliable, not that each named parameter in turn is actually broken. Worth checking "did the thing already happen?" before continuing to debug parameters that keep changing. Also: never write down a fix as confirmed from a description of log output alone — re-ran the actual verification commands myself and got real, consistent output before treating this as resolved.
+
+## Finding 21: a parameter typo in `New-ADUser` failed quietly enough to look like it might have worked
+
+**What happened:** creating the Week 11 test user with `New-ADUser` failed
+twice because of a typo in a parameter name (`USerPrincipaName` instead of
+`-UserPrincipalName`). PowerShell's error for this isn't always a loud,
+obvious failure — it's easy to glance at the output, not see an obvious
+success message either, and assume the command "probably" went through.
+
+**Root cause:** a parameter name typo, same cause both times, not a
+different bug each attempt.
+
+**Fix:** retyped the parameter correctly on a third attempt. Critically,
+instead of trusting that silence meant success, the user account was
+verified directly afterward:
+
+```powershell
+Get-ADUser -Identity testuser -Properties *
+```
+
+This came back with a real, fully-populated user object, confirming the
+third attempt actually worked — the first two had not silently half-created
+anything.
+
+**Lesson:** "it didn't show an error" and "it worked" are not the same
+thing, especially with cmdlets that have many similarly-named parameters.
+Every account-creation step in this project gets a direct existence/property
+check afterward rather than being accepted on the absence of visible
+failure.
