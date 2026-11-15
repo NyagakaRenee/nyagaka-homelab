@@ -216,3 +216,58 @@ actual ModSecurity audit log (rules 942100 + 949110).
 not a security verdict — always worth checking the raw error text (don't
 suppress it) before concluding anything about what the server did or
 didn't do.
+## Finding 23: the custom detection pipeline was never actually scheduled
+
+**What happened:** running a real end-to-end brute-force test against
+SRV01, Wazuh's built-in SSHD ruleset caught it immediately, but the
+project's own custom rules (100005/100006/100011) caught nothing at all.
+
+**Root cause:** `log_shipper.py` — the script that turns `auth.log` lines
+into the JSON events these custom rules depend on — had never been added
+to any cron schedule. It had only ever been invoked manually during Week
+3-5 testing; its last real event on disk was 4 days old. Root's crontab did
+have a job running every 15 minutes, but it was the *original* Stage 0 Bash
+monitor script, not the Python one — and that same Bash job was
+accidentally duplicated in the crontab, running twice per interval.
+
+**Fix:** removed the duplicate Bash cron line, added a proper schedule for
+`log_shipper.py`. Before scheduling it, fixed a second latent problem: the
+script re-read the entire log file from byte 0 on every run, which would
+have appended duplicate copies of every historical event on every
+scheduled run. Added byte-offset + inode tracking in a small state file so
+each run only processes genuinely new lines — verified directly by running
+it manually right after initializing state and confirming `0 total events
+written`.
+
+**Lesson:** a detection script that works perfectly when run by hand is not
+the same thing as a detection pipeline. "I tested it and it worked" during
+development says nothing about whether anything is still running it later.
+Worth checking `crontab -l` (and `sudo crontab -l` — don't forget root) as
+a real verification step, not an assumption, for anything meant to run
+continuously.
+
+## Finding 24: fixing Finding 23 silently reintroduced Finding 18
+
+**What happened:** immediately after fixing Finding 23 and scheduling
+`log_shipper.py`, a fresh brute-force test still produced zero hits on the
+custom rules.
+
+**Root cause:** my own mistake — the rewritten script used the JSON key
+`"event_type"`. Finding 18 (Week 9) had already established that this
+exact key name collides with Wazuh's built-in Suricata ruleset (rule
+86600), which silently claims any JSON-decoded log containing that key
+before custom rules get a chance to match it. I wrote the fix for Finding
+23 without cross-checking it against the already-applied fix for Finding
+18, and reintroduced the identical bug.
+
+**Fix:** diagnosed the exact same way Finding 18 originally was — fed a
+real captured event straight into `wazuh-logtest` and watched rule 86600
+claim it again. Corrected the JSON key to `nyagaka_event_type` throughout
+the script, verified with a fresh end-to-end test: rule 100006 fired 5/5,
+rule 100011 (the correlation rule) fired for real.
+
+**Lesson:** a previously-fixed bug can come back the moment code touching
+the same area gets rewritten, if the rewrite isn't checked against what
+the original fix actually required. Worth treating past findings as
+constraints to verify against when touching related code again, not just
+historical trivia.
